@@ -92,7 +92,7 @@ public class PageRankMapTask implements MapTask {
 	private FileData fileData;
 	private int numUrls; // number of urls of all tasks
 	private int numUrlsInTask; // number of urls of current map task
-	private UrlData[] UrlsData; // the adjacency matrix of all urls
+	private UrlData[] UrlsData; // the adjacency matrix of all urls < --- FOR THIS PARTITION 
 
 	public void close() throws TwisterException {
 	}
@@ -125,7 +125,7 @@ public class PageRankMapTask implements MapTask {
 
 	private double[][] decompress(DoubleVectorData dvd) {
 		double[][] compressedData = dvd.getData();
-		int numData = dvd.getNumData();
+		int numData = dvd.getNumData(); // number of URLs for this partition? 
 		this.numUrls = (int) compressedData[0][0];
 		double tanglingProb = compressedData[0][1]; // random url access
 													// probability
@@ -133,14 +133,15 @@ public class PageRankMapTask implements MapTask {
 		double[][] newData = new double[numUrls][2];
 		for (int i = 0; i < numUrls; i++) {
 			newData[i][0] = i;
-			newData[i][1] = tanglingProb / numUrls;
+			newData[i][1] = tanglingProb / numUrls;	// accounting for PR provided by dangling values 
 		}
 		int index;
+		//first (0th) row of compressedData contains numUrls & danglingProb info; rest of the rows contains target, PageRank-per-target data 
 		for (int i = 1; i < numData; i++) {
-			index = (int) compressedData[i][0];
-			newData[index][1] += compressedData[i][1];
+			index = (int) compressedData[i][0]; 
+			newData[index][1] += compressedData[i][1]; // 
 		}
-		return newData;
+		return newData; //newData's link-index follows natural ordering (i.e. array[0] -> link-index @ 0, array[1] -> link-index @ 1, etc. 
 	}
 
 	/*
@@ -165,6 +166,7 @@ public class PageRankMapTask implements MapTask {
 		UrlsData = new UrlData[numUrlsInTask];
 		String[] vectorValues;
 
+		//each UrlsData entry contains a link's index, and then that link's target indices. 
 		for (int i = 0; i < numUrlsInTask; i++) {
 			UrlsData[i] = new UrlData();
 			UrlsData[i].urls = new ArrayList<Integer>();
@@ -185,15 +187,19 @@ public class PageRankMapTask implements MapTask {
 			Set<Integer> urlsSet = new HashSet<Integer>();
 			double tanglingProbSum = 0.0d;
 			tmpDvd.fromBytes(val.getBytes());
-			double[][] tmpData = tmpDvd.getData();
+			double[][] tmpData = tmpDvd.getData(); // contains only PR values changed from last iteration   
 			this.numUrls = (int) tmpData[0][0];
 			
 			int fromUrl, toUrl;
-			double[][] tmpPageRank = decompress(tmpDvd);
+			double[][] tmpPageRank = decompress(tmpDvd); //first (0th) row of compressedData contains numUrls & danglingProb info; 
+															//rest of the rows contains target, PageRank-per-target data 
 			double[][] newPageRank = new double[numUrls][2];
 			
 			/* WRITE YOUR CODE AND COMPLETE HERE */
-						
+			/** No-outlink case ??? */
+			
+			
+				
 			int numChangedUrls = urlsSet.size();
 			double changedPageRank[][] = new double[numChangedUrls + 1][2];
 			changedPageRank[0][0] = numUrls;

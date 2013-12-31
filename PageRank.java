@@ -114,6 +114,8 @@ public class PageRank {
 	 *            - Number of map tasks.
 	 * @return - List of key,value pairs.
 	 */
+	
+	//Produces (i, data) pairs where i ranges from 0 ... numMaps, & data is constant ?  
 	private static List<KeyValuePair> getKeyValuesForMap(byte[] data,
 			int numMaps) {
 		List<KeyValuePair> keyValues = new ArrayList<KeyValuePair>();
@@ -178,17 +180,18 @@ public class PageRank {
 
 	private String partitionFile;
 
-	private UUIDGenerator uuidGen = UUIDGenerator.getInstance();
+	private UUIDGenerator uuidGen = UUIDGenerator.getInstance(); // ? 
 
 	public PageRank(int numUrls, int numMapTasks, int numReduceTasks,
 			String partitionFile, String outputFile) {
-		this.numUrls = numUrls;
+		this.numUrls = numUrls; //GLOBAL numUrls
 		this.numMapTasks = numMapTasks;
 		this.partitionFile = partitionFile;
 		this.outputFile = outputFile;
 		this.numReduceTasks = numReduceTasks;
 	}
 
+	//called to set initial PR values 
 	private DoubleVectorData decompress(DoubleVectorData compressedData) {
 		double[][] comData = compressedData.getData();
 		int numData = compressedData.getNumData();
@@ -196,6 +199,8 @@ public class PageRank {
 		double tanglingProb = comData[0][1];
 		double[][] newPageRanksData = new double[numUrls][2];
 		int index;
+		
+		//immediately eval to false when first called? b/c numData = 1 initially 
 		for (int i = 1; i < numData; i++) {
 			index = (int) comData[i][0];
 			newPageRanksData[index][1] += comData[i][1];
@@ -205,7 +210,7 @@ public class PageRank {
 			newPageRanksData[i][0] = i;
 			newPageRanksData[i][1] += tanglingProb / (double)numUrls;
 			newPageRanksData[i][1] = 0.15 * (1.0 / (double)numUrls) + 0.85
-					* newPageRanksData[i][1];
+					* newPageRanksData[i][1]; //why this step? thought initial PR should just be 1/numUrls for everything
 		}
 		DoubleVectorData resData = new DoubleVectorData(newPageRanksData,
 				numUrls, 2);
