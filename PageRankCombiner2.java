@@ -54,108 +54,77 @@ package cgl.imr.samples.pagerank;
 
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
+import cgl.imr.base.Combiner;
 import cgl.imr.base.Key;
-import cgl.imr.base.ReduceOutputCollector;
-import cgl.imr.base.ReduceTask;
-import cgl.imr.base.SerializationException;
 import cgl.imr.base.TwisterException;
 import cgl.imr.base.Value;
 import cgl.imr.base.impl.JobConf;
-import cgl.imr.base.impl.ReducerConf;
 import cgl.imr.types.BytesValue;
 import cgl.imr.types.DoubleVectorData;
-import cgl.imr.types.IntKey;
 
-/*
- * Reduce task of the page rank algorithm
- *
- * @author Hui Li (lihui@indiana.edu) 
+/**
+ * Combine the partial result of page result together.
+ * 
+ * @author Hui Li (lihui@indiana.edu)
  * @author Jaliya Ekanayake (jaliyae@gmail.com)
  * 
  */
 
-public class PageRankReduceTask implements ReduceTask {
+public class PageRankCombiner2 implements Combiner {
+
+	DoubleVectorData results;
+
+	public PageRankCombiner2() {
+		results = new DoubleVectorData();
+	}
+
 	public void close() throws TwisterException {
-		// TODO Auto-generated method stub
 	}
 
-	/*
-	 * Merge the partial results of local or near by map tasks together, so as
-	 * to decrease the network cost
-	 * 
-	 * @parameter collector -store the intermediate key value pair
-	 * 
-	 * @parameter key -the index of group of map tasks
-	 * 
-	 * @parameter values -the list of compressed values of changed urls of
-	 * groups
-	 */
-
-	public void configure(JobConf jobConf, ReducerConf reducerConf)
-			throws TwisterException {
-	}
-
-	public void reduce(ReduceOutputCollector collector, Key key, List<Value> values) throws TwisterException {
-		try {			
-			int numUrls, numData, lenData;
-			double tanglingProbSum = 0.0d;
-			Set<Integer> urlsSet = new HashSet<Integer>();
-			BytesValue val = (BytesValue) values.get(0);
-			DoubleVectorData tmpDvd = new DoubleVectorData();
-			tmpDvd.fromBytes(val.getBytes());
-			numData = tmpDvd.getNumData();
-			lenData = tmpDvd.getVecLen();
-
-			double[][] tmpPageRank = new double[numData][lenData];
-			tmpPageRank = tmpDvd.getData();
-			numUrls = (int) (tmpPageRank[0][0]);
-			double[][] newPageRank = new double[numUrls][lenData];
+	public void combine(Map<Key, Value> keyValues) throws TwisterException {
+		try {
+			
+			int numUrls = -1;	        
+			double[][] newPageRanks = new double[numUrls][1];
+			double[][] currPageRanks; 
+			double totalDanglingValSum = 0.0;
 			
 			/* Write your code and COMPLETE HERE */
-			tanglingProbSum = 0.0d;
-            int numValues = values.size();
-            int index;
-            for (int i = 0; i < numValues; i++) {
-                    val = (BytesValue) values.get(i);
-                    tmpDvd = new DoubleVectorData();
-                    tmpDvd.fromBytes(val.getBytes());
-                    tmpPageRank = tmpDvd.getData();
-                    numData = tmpDvd.getNumData();
-                    tanglingProbSum += tmpPageRank[0][1]; // merge the tangling
+			//shouldn't there only be 1 key? (see end of Reduce) 
+            for (Iterator<Key> ite = keyValues.keySet().iterator(); ite.hasNext();) {
+            		Key key = ite.next();
+                    BytesValue val = (BytesValue) keyValues.get(key);
+                    DoubleVectorData tmpDV = new DoubleVectorData();
+                    tmpDV.fromBytes(val.getBytes());
+                    numUrls = tmpDV.getNumData() - 1;
+                    currPageRanks = tmpDV.getData();
+                    totalDanglingValSum += currPageRanks[numUrls][0]; // merge dangling values 
                     // merge the changed page rank values together
-                    for (int j = 1; j < numData; j++) {
-                            index = (int) tmpPageRank[j][0];
-                            newPageRank[index][1] += tmpPageRank[j][1];
-                            urlsSet.add(index);
+                    for (int j = 0; j < numUrls; j++) {
+                    	newPageRanks[j][0] += currPageRanks[j][0];
                     }
+            }			
+            // factor in dangling values, damping factor 
+            for (int i = 0; i < numUrls; i++) {
+            	double pageRankVal = newPageRanks[i][0] + (totalDanglingValSum / numUrls);
+            	newPageRanks[i][0] = (.15 / numUrls) + (.85 * pageRankVal);
             }
+            
+            /** End of your code */ 
+			results = new DoubleVectorData(newPageRanks, numUrls, 1); 
 			
-			// compress the page rank values by only storing the changed page rank values
-			int numChangedUrls = urlsSet.size(); // the number of urls whose rank value changed
-					
-			int[] urlsArray = new int[numChangedUrls];
-			Iterator<Integer> iter = urlsSet.iterator();
-			for (int i = 0; i < numChangedUrls; i++) {
-				if (iter.hasNext())
-					urlsArray[i] = (iter.next()).intValue();
-			}
-		
-			double[][] resultData = new double[numChangedUrls + 1][2];
-			resultData[0][0] = numUrls;
-			resultData[0][1] = tanglingProbSum;
-			for (int i = 1; i <= numChangedUrls; i++) {
-				resultData[i][0] = urlsArray[i - 1];
-				resultData[i][1] = newPageRank[urlsArray[i - 1]][1];
-			}
-			DoubleVectorData resultDvd = new DoubleVectorData(resultData,
-					numChangedUrls + 1, 2);
-			collector.collect(new IntKey(1), new BytesValue(resultDvd.getBytes()));
-			// emit the results to combiner
-		} catch (SerializationException e) {
+		} catch (Exception e) {
 			throw new TwisterException(e);
 		}
+	}
+
+	public void configure(JobConf jobConf) throws TwisterException {
+	}
+
+	public DoubleVectorData getResults() {
+		return results;
 	}
 }

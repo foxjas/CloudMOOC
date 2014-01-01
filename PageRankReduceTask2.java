@@ -77,7 +77,7 @@ import cgl.imr.types.IntKey;
  * 
  */
 
-public class PageRankReduceTask implements ReduceTask {
+public class PageRankReduceTask2 implements ReduceTask {
 	public void close() throws TwisterException {
 		// TODO Auto-generated method stub
 	}
@@ -100,59 +100,34 @@ public class PageRankReduceTask implements ReduceTask {
 
 	public void reduce(ReduceOutputCollector collector, Key key, List<Value> values) throws TwisterException {
 		try {			
-			int numUrls, numData, lenData;
-			double tanglingProbSum = 0.0d;
-			Set<Integer> urlsSet = new HashSet<Integer>();
+			// get total # of URLs (PageRank entries) 
 			BytesValue val = (BytesValue) values.get(0);
-			DoubleVectorData tmpDvd = new DoubleVectorData();
-			tmpDvd.fromBytes(val.getBytes());
-			numData = tmpDvd.getNumData();
-			lenData = tmpDvd.getVecLen();
-
-			double[][] tmpPageRank = new double[numData][lenData];
-			tmpPageRank = tmpDvd.getData();
-			numUrls = (int) (tmpPageRank[0][0]);
-			double[][] newPageRank = new double[numUrls][lenData];
+            DoubleVectorData tmpDV = new DoubleVectorData();
+            tmpDV.fromBytes(val.getBytes());
+            int numUrls = tmpDV.getNumData() - 1;
+            
+			double[][] newPageRanks = new double[numUrls + 1][1];
+			double[][] currPageRanks; 
+			double totalDanglingValSum = 0.0;
 			
-			/* Write your code and COMPLETE HERE */
-			tanglingProbSum = 0.0d;
-            int numValues = values.size();
-            int index;
-            for (int i = 0; i < numValues; i++) {
+			/** Write your code and COMPLETE HERE */
+            for (int i = 0; i < values.size(); i++) {
                     val = (BytesValue) values.get(i);
-                    tmpDvd = new DoubleVectorData();
-                    tmpDvd.fromBytes(val.getBytes());
-                    tmpPageRank = tmpDvd.getData();
-                    numData = tmpDvd.getNumData();
-                    tanglingProbSum += tmpPageRank[0][1]; // merge the tangling
+                    tmpDV = new DoubleVectorData();
+                    tmpDV.fromBytes(val.getBytes());
+                    currPageRanks = tmpDV.getData();
+                    totalDanglingValSum += currPageRanks[numUrls][0]; // merge dangling values 
                     // merge the changed page rank values together
-                    for (int j = 1; j < numData; j++) {
-                            index = (int) tmpPageRank[j][0];
-                            newPageRank[index][1] += tmpPageRank[j][1];
-                            urlsSet.add(index);
+                    for (int j = 0; j < numUrls; j++) {
+                            newPageRanks[j][0] += currPageRanks[j][0];
                     }
             }
-			
-			// compress the page rank values by only storing the changed page rank values
-			int numChangedUrls = urlsSet.size(); // the number of urls whose rank value changed
-					
-			int[] urlsArray = new int[numChangedUrls];
-			Iterator<Integer> iter = urlsSet.iterator();
-			for (int i = 0; i < numChangedUrls; i++) {
-				if (iter.hasNext())
-					urlsArray[i] = (iter.next()).intValue();
-			}
-		
-			double[][] resultData = new double[numChangedUrls + 1][2];
-			resultData[0][0] = numUrls;
-			resultData[0][1] = tanglingProbSum;
-			for (int i = 1; i <= numChangedUrls; i++) {
-				resultData[i][0] = urlsArray[i - 1];
-				resultData[i][1] = newPageRank[urlsArray[i - 1]][1];
-			}
-			DoubleVectorData resultDvd = new DoubleVectorData(resultData,
-					numChangedUrls + 1, 2);
-			collector.collect(new IntKey(1), new BytesValue(resultDvd.getBytes()));
+            
+            /** End of your code */ 
+            
+			newPageRanks[numUrls][0] = totalDanglingValSum;
+			DoubleVectorData resultDvd = new DoubleVectorData(newPageRanks, numUrls + 1, 1);
+			collector.collect(new IntKey(1), new BytesValue(resultDvd.getBytes())); 
 			// emit the results to combiner
 		} catch (SerializationException e) {
 			throw new TwisterException(e);

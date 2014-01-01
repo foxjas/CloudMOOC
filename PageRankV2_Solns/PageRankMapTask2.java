@@ -81,18 +81,18 @@ import cgl.imr.types.IntKey;
  * 
  */
 
-public class PageRankMapTask implements MapTask {
+public class PageRankMapTask2 implements MapTask {
 
 	// data structure of one item of adjacency matrix
 	public class UrlData {
-		public int index;
+		public int index; // "from" index
 		public ArrayList<Integer> urls;
 	}
 
 	private FileData fileData;
 	private int numUrls; // number of urls of all tasks
 	private int numUrlsInTask; // number of urls of current map task
-	private UrlData[] UrlsData; // the adjacency matrix of all urls < --- FOR THIS PARTITION 
+	private UrlData[] UrlsData; // the adjacency matrix of all urls
 
 	public void close() throws TwisterException {
 	}
@@ -111,37 +111,6 @@ public class PageRankMapTask implements MapTask {
 		} catch (Exception e) {
 			throw new TwisterException(e);
 		}
-	}
-
-	/*
-	 * decompress the compressed page rank values
-	 * 
-	 * @parameter dvd -compressed data which store page rank values changed in
-	 * the last process
-	 * 
-	 * @return value -matrix which store all page rank values include changed
-	 * and unchanged
-	 */
-
-	private double[][] decompress(DoubleVectorData dvd) {
-		double[][] compressedData = dvd.getData();
-		int numData = dvd.getNumData(); // number of URLs for this partition? 
-		this.numUrls = (int) compressedData[0][0];
-		double tanglingProb = compressedData[0][1]; // random url access
-													// probability
-
-		double[][] newData = new double[numUrls][2];
-		for (int i = 0; i < numUrls; i++) {
-			newData[i][0] = i;
-			newData[i][1] = tanglingProb / numUrls;	// accounting for PR provided by dangling values 
-		}
-		int index;
-		//first (0th) row of compressedData contains numUrls & danglingProb info; rest of the rows contains target, PageRank-per-target data 
-		for (int i = 1; i < numData; i++) {
-			index = (int) compressedData[i][0]; 
-			newData[index][1] += compressedData[i][1]; // 
-		}
-		return newData; //newData's link-index follows natural ordering (i.e. array[0] -> link-index @ 0, array[1] -> link-index @ 1, etc. 
 	}
 
 	/*
@@ -166,7 +135,6 @@ public class PageRankMapTask implements MapTask {
 		UrlsData = new UrlData[numUrlsInTask];
 		String[] vectorValues;
 
-		//each UrlsData entry contains a link's index, and then that link's target indices. 
 		for (int i = 0; i < numUrlsInTask; i++) {
 			UrlsData[i] = new UrlData();
 			UrlsData[i].urls = new ArrayList<Integer>();
@@ -182,99 +150,38 @@ public class PageRankMapTask implements MapTask {
 
 	public void map(MapOutputCollector collector, Key key, Value val)
 			throws TwisterException {
-		try {
-			DoubleVectorData tmpDvd = new DoubleVectorData();
-			Set<Integer> urlsSet = new HashSet<Integer>();
-			double tanglingProbSum = 0.0d;
-			tmpDvd.fromBytes(val.getBytes());
-			double[][] tmpData = tmpDvd.getData(); // contains only PR values changed from last iteration   
-			this.numUrls = (int) tmpData[0][0];
-			
-			int fromUrl, toUrl;
-			double[][] tmpPageRank = decompress(tmpDvd); //first (0th) row of compressedData contains numUrls & danglingProb info; 
-															//rest of the rows contains target, PageRank-per-target data 
-			double[][] newPageRank = new double[numUrls][2];
-			
-			/* WRITE YOUR CODE AND COMPLETE HERE */
-			/** No-outlink case ??? */
-			
-			
-				
-			int numChangedUrls = urlsSet.size();
-			double changedPageRank[][] = new double[numChangedUrls + 1][2];
-			changedPageRank[0][0] = numUrls;
-			changedPageRank[0][1] = tanglingProbSum;
-			int[] urlsArray = new int[numChangedUrls];
-			Iterator<Integer> iter = urlsSet.iterator();
-			for (int i = 0; i < numChangedUrls; i++) {
-				if (iter.hasNext())
-					urlsArray[i] = (iter.next()).intValue();
-			}
-			
-			for (int i = 0; i < numChangedUrls; i++) {
-				changedPageRank[i + 1][0] = urlsArray[i];
-				changedPageRank[i + 1][1] = newPageRank[urlsArray[i]][1];
-			}
-			
-			DoubleVectorData resultDvd = new DoubleVectorData(changedPageRank,
-					numChangedUrls + 1, 2);
-			
-			int taskNo = key.hashCode();
-			collector.collect(new IntKey(taskNo), new BytesValue(resultDvd
-					.getBytes()));
-			
-		} catch (SerializationException e) {
-			throw new TwisterException(e);
-		}
 			try {
-	            DoubleVectorData tmpDvd = new DoubleVectorData();
-	            Set<Integer> urlsSet = new HashSet<Integer>();
-	            double tanglingProbSum = 0.0d;
-	            tmpDvd.fromBytes(val.getBytes());
-	            double[][] tmpData = tmpDvd.getData();
-	            this.numUrls = (int) tmpData[0][0];
-	            tmpData = null;
-	            int fromUrl, toUrl;
-	            double[][] tmpPageRank = decompress(tmpDvd);
-	            double[][] newPageRank = new double[numUrls][2];
+				DoubleVectorData tmpDV = new DoubleVectorData();
+				tmpDV.fromBytes(val.getBytes());
+				double[][] tmpPageRanks = tmpDV.getData();
+	            this.numUrls = tmpPageRanks.length;
+	            double[][] newPageRanks = new double[numUrls + 1][1];  //last entry reserved for storing danglingValSum for this partition	            													 
+	    
+	            /** Your solution here */ 
+	            double danglingValSum = 0.0d;
+	            int fromUrl = -1;
+	            int toUrl = -1;
 	            for (int i = 0; i < numUrlsInTask; i++) {
-	                    fromUrl = UrlsData[i].index;
-	                    for (int j = 0; j < UrlsData[i].urls.size(); j++) {
+	            		if (UrlsData[i].urls.size() == 0) {
+	            			danglingValSum += tmpPageRanks[fromUrl][0];
+	                    	continue;
+	            		} 
+	            		fromUrl = UrlsData[i].index;
+	            		double fromUrlPRVal = tmpPageRanks[fromUrl][0];
+	            		double numTargetUrls = UrlsData[i].urls.size();
+	                    for (int j = 0; j < numTargetUrls; j++) {
 	                            toUrl = (UrlsData[i].urls.get(j)).intValue();
-	                            urlsSet.add(toUrl);
-	                            newPageRank[toUrl][1] += tmpPageRank[fromUrl][1]
-	                                            / UrlsData[i].urls.size();
-	                    }// end for j
-	                    if (UrlsData[i].urls.size() == 0)
-	                            tanglingProbSum += tmpPageRank[fromUrl][1];
-	            }// end for i
-	            tmpPageRank = null;
-	            
-	            int numChangedUrls = urlsSet.size();
-	            double changedPageRank[][] = new double[numChangedUrls + 1][2];
-	            changedPageRank[0][0] = numUrls;
-	            changedPageRank[0][1] = tanglingProbSum;
-	            int[] urlsArray = new int[numChangedUrls];
-	            Iterator<Integer> iter = urlsSet.iterator();
-	            for (int i = 0; i < numChangedUrls; i++) {
-	                    if (iter.hasNext())
-	                            urlsArray[i] = (iter.next()).intValue();
+	                            newPageRanks[toUrl][0] += fromUrlPRVal / numTargetUrls;
+	                    }
 	            }
-	            urlsSet = null;
-	            double changedUrlsValues = 0.0d;
-	            for (int i = 0; i < numChangedUrls; i++) {
-	                    changedPageRank[i + 1][0] = urlsArray[i];
-	                    changedPageRank[i + 1][1] = newPageRank[urlsArray[i]][1];
-	                    changedUrlsValues += changedPageRank[i + 1][1];
-	            }
-	            newPageRank = null;
-	            DoubleVectorData resultDvd = new DoubleVectorData(changedPageRank,
-	                            numChangedUrls + 1, 2);
-	            changedPageRank = null;
+	            /** End of your solution */
+	            newPageRanks[numUrls][0] = danglingValSum;
+	            DoubleVectorData resultDV = new DoubleVectorData(newPageRanks,
+	                            this.numUrls + 1, 1);
 	            int taskNo = key.hashCode();
-	            collector.collect(new IntKey(taskNo), new BytesValue(resultDvd
+	            collector.collect(new IntKey(taskNo), new BytesValue(resultDV
 	                            .getBytes()));
-	            resultDvd = null;
+	            
 	    } catch (SerializationException e) {
 	            throw new TwisterException(e);
 	    }
