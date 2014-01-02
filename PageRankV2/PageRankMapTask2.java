@@ -78,7 +78,7 @@ import cgl.imr.types.IntKey;
  * Map task for the page rank.
  *
  * @author Hui Li (lihui@indiana.edu) 
- * 
+ * @author James Fox (foxjas09@gmail.com)
  */
 
 public class PageRankMapTask2 implements MapTask {
@@ -158,23 +158,13 @@ public class PageRankMapTask2 implements MapTask {
 	            double[][] newPageRanks = new double[numUrls + 1][1];  //last entry reserved for storing danglingValSum for this partition	            													 
 	    
 	            /** Your solution here */ 
-	            double danglingValSum = 0.0d;
-	            int fromUrl = -1;
-	            int toUrl = -1;
-	            for (int i = 0; i < numUrlsInTask; i++) {
-	            		if (UrlsData[i].urls.size() == 0) {
-	            			danglingValSum += tmpPageRanks[fromUrl][0];
-	                    	continue;
-	            		} 
-	            		fromUrl = UrlsData[i].index;
-	            		double fromUrlPRVal = tmpPageRanks[fromUrl][0];
-	            		double numTargetUrls = UrlsData[i].urls.size();
-	                    for (int j = 0; j < numTargetUrls; j++) {
-	                            toUrl = (UrlsData[i].urls.get(j)).intValue();
-	                            newPageRanks[toUrl][0] += fromUrlPRVal / numTargetUrls;
-	                    }
-	            }
+	            
+	            
+	            
+	            
+	            
 	            /** End of your solution */
+	            
 	            newPageRanks[numUrls][0] = danglingValSum;
 	            DoubleVectorData resultDV = new DoubleVectorData(newPageRanks,
 	                            this.numUrls + 1, 1);

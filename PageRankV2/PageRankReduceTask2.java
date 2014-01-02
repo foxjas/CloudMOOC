@@ -74,7 +74,7 @@ import cgl.imr.types.IntKey;
  *
  * @author Hui Li (lihui@indiana.edu) 
  * @author Jaliya Ekanayake (jaliyae@gmail.com)
- * 
+ * @author James Fox (foxjas09@gmail.com)
  */
 
 public class PageRankReduceTask2 implements ReduceTask {
@@ -111,18 +111,11 @@ public class PageRankReduceTask2 implements ReduceTask {
 			double totalDanglingValSum = 0.0;
 			
 			/** Write your code and COMPLETE HERE */
-            for (int i = 0; i < values.size(); i++) {
-                    val = (BytesValue) values.get(i);
-                    tmpDV = new DoubleVectorData();
-                    tmpDV.fromBytes(val.getBytes());
-                    currPageRanks = tmpDV.getData();
-                    totalDanglingValSum += currPageRanks[numUrls][0]; // merge dangling values 
-                    // merge the changed page rank values together
-                    for (int j = 0; j < numUrls; j++) {
-                            newPageRanks[j][0] += currPageRanks[j][0];
-                    }
-            }
+           
             
+			
+			
+			
             /** End of your code */ 
             
 			newPageRanks[numUrls][0] = totalDanglingValSum;

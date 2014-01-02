@@ -70,7 +70,7 @@ import cgl.imr.types.DoubleVectorData;
  * 
  * @author Hui Li (lihui@indiana.edu)
  * @author Jaliya Ekanayake (jaliyae@gmail.com)
- * 
+ * @author James Fox (foxjas09@gmail.com)
  */
 
 public class PageRankCombiner2 implements Combiner {
@@ -92,28 +92,14 @@ public class PageRankCombiner2 implements Combiner {
 			double[][] currPageRanks; 
 			double totalDanglingValSum = 0.0;
 			
-			/* Write your code and COMPLETE HERE */
-			//shouldn't there only be 1 key? (see end of Reduce) 
-            for (Iterator<Key> ite = keyValues.keySet().iterator(); ite.hasNext();) {
-            		Key key = ite.next();
-                    BytesValue val = (BytesValue) keyValues.get(key);
-                    DoubleVectorData tmpDV = new DoubleVectorData();
-                    tmpDV.fromBytes(val.getBytes());
-                    numUrls = tmpDV.getNumData() - 1;
-                    currPageRanks = tmpDV.getData();
-                    totalDanglingValSum += currPageRanks[numUrls][0]; // merge dangling values 
-                    // merge the changed page rank values together
-                    for (int j = 0; j < numUrls; j++) {
-                    	newPageRanks[j][0] += currPageRanks[j][0];
-                    }
-            }			
-            // factor in dangling values, damping factor 
-            for (int i = 0; i < numUrls; i++) {
-            	double pageRankVal = newPageRanks[i][0] + (totalDanglingValSum / numUrls);
-            	newPageRanks[i][0] = (.15 / numUrls) + (.85 * pageRankVal);
-            }
-            
+			/** Write your code and COMPLETE HERE */
+
+			
+			
+			
+			
             /** End of your code */ 
+			
 			results = new DoubleVectorData(newPageRanks, numUrls, 1); 
 			
 		} catch (Exception e) {
